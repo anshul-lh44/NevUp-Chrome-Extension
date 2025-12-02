@@ -1,1 +1,42 @@
+.nevup-popup,
+.nevup-options {
+font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+padding: 10px;
+min-width: 220px;
+}
 
+.nevup-popup h3,
+.nevup-options h2 {
+margin-top: 0;
+}
+
+.nevup-options label {
+display: block;
+margin-bottom: 10px;
+}
+
+.nevup-options input[type="text"] {
+width: 100%;
+padding: 4px 6px;
+box-sizing: border-box;
+}
+
+button {
+padding: 5px 10px;
+cursor: pointer;
+}
+
+.small {
+font-size: 11px;
+color: #666;
+}
+
+#status.success {
+color: green;
+margin-top: 8px;
+}
+
+#status.error {
+color: red;
+margin-top: 8px;
+}
