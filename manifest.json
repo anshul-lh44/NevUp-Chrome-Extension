@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "NevUp Trading Coach",
+  "version": "1.0",
+  "description": "AI trading psychology coach + nudges + points.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://your-nevup-backend.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "NevUp"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.your-broker.com/*", "*://*.another-broker.com/*"],
+      "js": ["contentScript.js"]
+    }
+  ]
+}
