@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "NevUp Trading Coach",
+  "name": "NevUp AI",
   "version": "1.0",
-  "description": "AI trading psychology coach + nudges + points.",
+  "description": "AI trading psychology analyzer + nudges + points.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "https://github.com/VedanshN/NevUp-Backend.git"
