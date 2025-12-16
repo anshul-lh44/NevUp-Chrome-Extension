@@ -1,1 +1,66 @@
-<!doctype html> <html> <head> <meta charset="utf-8" /> <title>NevUp</title> <link rel="stylesheet" href="styles/extension.css" /> </head> <body class="nevup-popup"> <h3>NevUp Points</h3> <p>Points: <span id="points">0</span></p> <p>Rank: <span id="rank">-</span></p> <button id="refresh">Refresh</button> <p class="small"> Configure API in <a href="#" id="open-options">Options</a>. </p> <script src="popup.js"></script> </body> </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NevUp Trading Coach</title>
+  <link rel="stylesheet" href="styles/extension.css">
+  <!-- Using FontAwesome for icons (optional, or use SVGs) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="coin-icon">
+        <i class="fa-solid fa-rabbit"></i> <!-- Placeholder for Bunny Icon -->
+      </div>
+      <div class="header-text">
+        <h1>PancakeSwap AMM V3</h1>
+        <span>PancakeSwap Token</span>
+      </div>
+    </div>
+    <button class="close-btn"><i class="fa-solid fa-xmark"></i></button>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="journal">Trading Journal</button>
+    <button class="tab-btn" data-tab="alerts">Alerts</button>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="content-area">
+    
+    <!-- View 1: Trading Journal -->
+    <div id="journal" class="view active">
+      <!-- Journal items will be injected here by JS -->
+    </div>
+
+    <!-- View 2: Alerts -->
+    <div id="alerts" class="view hidden">
+      <!-- Alert items will be injected here by JS -->
+    </div>
+
+    <!-- View 3: Chat Suggestions (Hidden by default, shown on interaction) -->
+    <div id="chat-suggestions" class="view hidden">
+      <div class="suggestion-bubbles">
+        <button class="bubble">Is this trade aligned with my strategy or am I chasing momentum?</button>
+        <button class="bubble">Am I entering this position out of FOMO or solid analysis?</button>
+        <button class="bubble">What is my exact exit strategy for both profit and loss?</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer / Chat Input -->
+  <footer class="chat-footer">
+    <div class="input-wrapper">
+      <input type="text" id="ask-nev" placeholder="Ask Nev">
+      <button class="send-btn"><i class="fa-regular fa-paper-plane"></i></button>
+    </div>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
