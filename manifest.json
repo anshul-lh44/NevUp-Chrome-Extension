@@ -16,7 +16,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*https://www.binance.com/en/*"],
+      "matches": ["https://*www.binance.com/en/*"],
       "js": ["contentScript.js"]
     }
   ]
