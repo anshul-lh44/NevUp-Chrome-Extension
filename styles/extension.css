@@ -1,42 +1,307 @@
-.nevup-popup,
-.nevup-options {
-font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-padding: 10px;
-min-width: 220px;
+:root {
+  --bg-color: #1a1d24;
+  --card-bg: #23272f;
+  --text-primary: #ffffff;
+  --text-secondary: #8b929a;
+  --accent-blue: #5e81f4;
+  --accent-green: #2ecc71;
+  --accent-red: #e74c3c;
+  --accent-yellow: #f1c40f;
+  --pill-bg: #2c313a;
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-.nevup-popup h3,
-.nevup-options h2 {
-margin-top: 0;
+body {
+  margin: 0;
+  width: 380px;
+  height: 600px;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.nevup-options label {
-display: block;
-margin-bottom: 10px;
+/* Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background-color: var(--bg-color);
 }
 
-.nevup-options input[type="text"] {
-width: 100%;
-padding: 4px 6px;
-box-sizing: border-box;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-button {
-padding: 5px 10px;
-cursor: pointer;
+.coin-icon {
+  width: 40px;
+  height: 40px;
+  background-color: #00d2d3; /* Teal color from image */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #fff;
 }
 
-.small {
-font-size: 11px;
-color: #666;
+.header-text h1 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
 }
 
-#status.success {
-color: green;
-margin-top: 8px;
+.header-text span {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
-#status.error {
-color: red;
-margin-top: 8px;
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 20px;
+  padding: 0 16px 10px;
+  border-bottom: 1px solid #2c313a;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tab-btn.active {
+  color: var(--accent-blue);
+}
+
+/* Content Area */
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  /* Custom Scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+}
+
+.view.hidden {
+  display: none;
+}
+
+/* Journal Card Styles */
+.journal-card {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.pair-info {
+  display: flex;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.pair-icon {
+  color: var(--accent-green); /* USDT green */
+}
+.pair-icon.secondary {
+  color: #f7931a; /* BTC orange */
+}
+
+.open-trade-btn {
+  background-color: white;
+  color: black;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.timestamp {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: var(--text-secondary);
+  gap: 2px;
+}
+
+.tags {
+  display: flex;
+  gap: 6px;
+}
+
+.tag {
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background-color: rgba(255,255,255,0.05);
+  color: #aaa;
+  border: 1px solid transparent;
+}
+
+.tag.confident { color: var(--accent-green); border-color: rgba(46, 204, 113, 0.2); }
+.tag.fearful { color: #9b59b6; border-color: rgba(155, 89, 182, 0.2); }
+.tag.cautious { color: var(--accent-yellow); border-color: rgba(241, 196, 15, 0.2); }
+
+/* Alert Card Styles */
+.alert-card {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  border-left: 3px solid transparent;
+}
+
+.alert-card.behavior { border-left-color: #e74c3c; } /* Red */
+.alert-card.risk { border-left-color: var(--accent-yellow); } /* Yellow */
+.alert-card.emotion { border-left-color: #e91e63; } /* Pink */
+.alert-card.strategy { border-left-color: var(--accent-green); } /* Green */
+
+.alert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.alert-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alert-num {
+  background-color: rgba(255,255,255,0.1);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.alert-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.alert-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.8);
+}
+
+.alert-body {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Chat Suggestions */
+#chat-suggestions {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.suggestion-bubbles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+  padding-bottom: 10px;
+}
+
+.bubble {
+  background-color: #2b2f36;
+  color: #ccc;
+  border: 1px solid #3a3f48;
+  padding: 10px 14px;
+  border-radius: 18px 18px 4px 18px; /* Chat bubble shape */
+  font-size: 12px;
+  text-align: right;
+  cursor: pointer;
+  max-width: 90%;
+  transition: background 0.2s;
+}
+
+.bubble:hover {
+  background-color: #353a45;
+}
+
+/* Footer */
+.chat-footer {
+  padding: 12px 16px;
+  background-color: var(--bg-color);
+  border-top: 1px solid #2c313a;
+}
+
+.input-wrapper {
+  background-color: #2b2f36;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  padding: 4px 6px 4px 16px;
+}
+
+#ask-nev {
+  background: none;
+  border: none;
+  color: white;
+  flex: 1;
+  font-size: 13px;
+  outline: none;
+  padding: 8px 0;
+}
+
+.send-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  font-size: 16px;
+}
+
+.send-btn:hover {
+  color: white;
 }
