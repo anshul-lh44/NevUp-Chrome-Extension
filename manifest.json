@@ -5,7 +5,7 @@
   "description": "AI trading psychology analyzer + nudges + points.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
-    "https://github.com/VedanshN/NevUp-Backend.git"
+    "http://0.0.0.0:8000/*"
   ],
   "background": {
     "service_worker": "background.js"
