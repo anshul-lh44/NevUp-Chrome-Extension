@@ -1,4 +1,6 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  const API_BASE = "http://localhost:8000";
+
   const tabs = document.querySelectorAll(".tab-btn");
   const views = document.querySelectorAll(".view");
   const journalContainer = document.getElementById("journal");
@@ -6,54 +8,118 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatInput = document.getElementById("ask-nev");
   const chatView = document.getElementById("chat-suggestions");
 
-  // Mock Data for Journal
-  const journalData = [
-    { pair: ["USDT", "BTCB"], date: "June 12, 2025", time: "10:40 AM", tags: ["Confident", "Fearful", "Cautious"] },
-    { pair: ["USDT", "BTCB"], date: "June 12, 2025", time: "10:40 AM", tags: ["Confident", "Fearful", "Cautious"] },
-    { pair: ["USDT", "BTCB"], date: "June 12, 2025", time: "10:40 AM", tags: ["Confident", "Fearful", "Cautious"] },
-    { pair: ["USDT", "BTCB"], date: "June 12, 2025", time: "10:40 AM", tags: ["Confident", "Fearful", "Cautious"] },
-  ];
+  /* ============================
+     LOAD REAL TRADES (JOURNAL)
+     ============================ */
 
-  // Mock Data for Alerts
+  async function loadJournal() {
+    journalContainer.innerHTML = "<p class='empty'>Loading trades...</p>";
+
+    try {
+      const res = await fetch("http://localhost:8000/trades");
+      const data = await res.json();
+
+      journalContainer.innerHTML = "";
+
+      if (!data.trades || data.trades.length === 0) {
+        journalContainer.innerHTML =
+          "<p class='empty'>No trades recorded yet</p>";
+        return;
+      }
+
+      data.trades
+        .slice()
+        .reverse()
+        .forEach((trade) => {
+          // 🔒 SAFE SYMBOL EXTRACTION
+          const rawSymbol =
+            trade.symbol || trade.pair || trade.ticker || "UNKNOWN";
+
+          const symbol = String(rawSymbol);
+
+          const base = symbol.includes("USDT")
+            ? symbol.replace("USDT", "")
+            : symbol;
+
+          const quote = symbol.includes("USDT") ? "USDT" : "";
+
+          const dateObj = trade.timestamp
+            ? new Date(trade.timestamp)
+            : new Date();
+
+          const date = dateObj.toLocaleDateString();
+          const time = dateObj.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+
+          const card = document.createElement("div");
+          card.className = "journal-card";
+
+          card.innerHTML = `
+          <div class="card-header">
+            <div class="pair-info">
+              <i class="fa-solid fa-coins pair-icon"></i>
+              ${quote} / ${base}
+            </div>
+            <button class="open-trade-btn ${trade.action || "UNKNOWN"}">
+              ${trade.action || "?"}
+            </button>
+          </div>
+
+          <div class="card-meta">
+            <div class="timestamp">
+              <span>${date}</span>
+              <span>${time}</span>
+            </div>
+
+            <div class="tags">
+              <span class="tag neutral">Qty: ${trade.qty ?? "-"}</span>
+              <span class="tag neutral">@ ${trade.price ?? "-"}</span>
+            </div>
+          </div>
+        `;
+
+          journalContainer.appendChild(card);
+        });
+    } catch (err) {
+      console.error("Trade load failed:", err);
+      journalContainer.innerHTML =
+        "<p class='empty error'>Backend reachable but data invalid</p>";
+    }
+  }
+
+  await loadJournal();
+
+  /* ============================
+     ALERTS (STILL MOCK — OK)
+     ============================ */
+
   const alertsData = [
-    { id: 1, title: "Overtrading Alert", type: "Behavior", desc: "You've made 5 trades in the last hour. Take a 15-minute break." },
-    { id: 2, title: "Position Sizing Warning", type: "Risk", desc: "This position exceeds your usual risk threshold by 35%." },
-    { id: 3, title: "FOMO Detection", type: "Emotion", desc: "Market is up 5% rapidly. You're at risk of emotional entry." },
-    { id: 4, title: "Trade Plan Reminder", type: "Strategy", desc: "Is this entry consistent with your setup conditions?" },
-    { id: 5, title: "Risk Management Check", type: "Risk", desc: "This position risks more than 2% of your account." },
+    {
+      id: 1,
+      title: "Overtrading Alert",
+      type: "Behavior",
+      desc: "You've made multiple trades recently. Consider a break.",
+    },
+    {
+      id: 2,
+      title: "Position Sizing Warning",
+      type: "Risk",
+      desc: "This trade exceeds your typical risk size.",
+    },
+    {
+      id: 3,
+      title: "FOMO Detection",
+      type: "Emotion",
+      desc: "Rapid price movement detected. Avoid emotional entry.",
+    },
   ];
 
-  // Render Journal
-  journalData.forEach(item => {
-    const card = document.createElement("div");
-    card.className = "journal-card";
-    card.innerHTML = `
-      <div class="card-header">
-        <div class="pair-info">
-          <i class="fa-solid fa-t pair-icon"></i> USDT , 
-          <i class="fa-brands fa-bitcoin pair-icon secondary"></i> BTCB
-        </div>
-        <button class="open-trade-btn">Open Trade</button>
-      </div>
-      <div class="card-meta">
-        <div class="timestamp">
-          <span>${item.date}</span>
-          <span>${item.time}</span>
-        </div>
-        <div class="tags">
-          <span class="tag confident">Confident</span>
-          <span class="tag fearful">Fearful</span>
-          <span class="tag cautious">Cautious</span>
-        </div>
-      </div>
-    `;
-    journalContainer.appendChild(card);
-  });
-
-  // Render Alerts
-  alertsData.forEach(item => {
+  alertsData.forEach((item) => {
     const card = document.createElement("div");
     card.className = `alert-card ${item.type.toLowerCase()}`;
+
     card.innerHTML = `
       <div class="alert-header">
         <div class="alert-title-group">
@@ -62,42 +128,44 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <span class="alert-badge">${item.type}</span>
       </div>
-      <div class="alert-body">
-        ${item.desc}
-      </div>
+      <div class="alert-body">${item.desc}</div>
     `;
+
     alertsContainer.appendChild(card);
   });
 
-  // Tab Switching Logic
-  tabs.forEach(tab => {
-    tab.addEventListener("click", () => {
-      // 1. Remove active class from all tabs
-      tabs.forEach(t => t.classList.remove("active"));
-      // 2. Add active class to clicked tab
-      tab.classList.add("active");
+  /* ============================
+     TAB SWITCHING
+     ============================ */
 
-      // 3. Hide all views
-      views.forEach(v => v.classList.add("hidden"));
-      
-      // 4. Show target view
-      const targetId = tab.getAttribute("data-tab");
-      document.getElementById(targetId).classList.remove("hidden");
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach((t) => t.classList.remove("active"));
+      views.forEach((v) => v.classList.add("hidden"));
+
+      tab.classList.add("active");
+      document.getElementById(tab.dataset.tab).classList.remove("hidden");
     });
   });
 
-  // Optional: Show Chat suggestions when focusing input
-  chatInput.addEventListener("focus", () => {
-    // Hide current content, show chat view
-    views.forEach(v => v.classList.add("hidden"));
-    chatView.classList.remove("hidden");
-    
-    // Deselect tabs visually
-    tabs.forEach(t => t.classList.remove("active"));
-  });
+  /* ============================
+     CHAT FOCUS
+     ============================ */
 
-  // Basic close button functionality
-  document.querySelector(".close-btn").addEventListener("click", () => {
-    window.close(); // Only works for popup, not injected content scripts
-  });
+  if (chatInput) {
+    chatInput.addEventListener("focus", () => {
+      views.forEach((v) => v.classList.add("hidden"));
+      chatView.classList.remove("hidden");
+      tabs.forEach((t) => t.classList.remove("active"));
+    });
+  }
+
+  /* ============================
+     CLOSE BUTTON
+     ============================ */
+
+  const closeBtn = document.querySelector(".close-btn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => window.close());
+  }
 });
