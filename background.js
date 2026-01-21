@@ -1,4 +1,4 @@
-const API_BASE = "https://github.com/VedanshN/NevUp-Backend.git";
+const API_BASE = "http://localhost:8000";
 
 let authToken = null;
 
