@@ -7,6 +7,10 @@
   "host_permissions": [
     "http://localhost:8000/*"
   ],
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
   "background": {
     "service_worker": "background.js"
   },
