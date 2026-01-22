@@ -101,6 +101,10 @@ body {
   scrollbar-color: #333 transparent;
 }
 
+.view {
+  display: block;
+}
+
 .view.hidden {
   display: none;
 }

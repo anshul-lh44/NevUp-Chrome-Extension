@@ -122,26 +122,104 @@ function buildWsUrl() {
   return `${wsProto}://${base}${WS_PATH}?token=${encodeURIComponent(authToken)}`;
 }
 function connectWebsocket() {
-  if (ws) return;
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    console.info("WebSocket already connected");
+    return;
+  }
+  if (ws) {
+    console.warn("WebSocket exists but not open, closing and reconnecting");
+    try { ws.close(); } catch (e) {}
+    ws = null;
+  }
   if (!authToken) {
     console.warn("Skipping WS connect: authToken missing");
     return;
   }
   let url;
-  try { url = buildWsUrl(); } catch (e) { console.error(e); return; }
+  try { 
+    url = buildWsUrl(); 
+    console.info("Building WS URL:", url);
+  } catch (e) { 
+    console.error("Failed to build WS URL:", e); 
+    return; 
+  }
   console.info("Connecting WS ->", url);
   try {
     ws = new WebSocket(url);
-    ws.onopen = () => { console.info("WebSocket connected."); wsReconnectBackoff = 1000; };
+    ws.onopen = () => { 
+      console.info("WebSocket connected successfully!"); 
+      wsReconnectBackoff = 1000; 
+    };
     ws.onmessage = (ev) => {
       try {
+        console.log("WS message received:", ev.data);
         const payload = JSON.parse(ev.data);
-        chrome.runtime.sendMessage({ type: "WS_NUDGE", payload });
-        if (payload && payload.type === "nudge") chrome.storage.local.set({ lastNudge: payload });
-      } catch (err) { console.warn("Invalid WS message:", ev.data); }
+        console.log("Parsed payload:", payload);
+        
+        // Send nudge to content script (for popup on site) instead of popup
+        if (payload && (payload.type === "nudge" || payload.nudge)) {
+          chrome.storage.local.set({ lastNudge: payload });
+          
+          // Extract message from nested structure
+          const nudgeData = payload.nudge || payload;
+          const message = nudgeData.message || nudgeData.nudge || JSON.stringify(payload).slice(0, 200);
+          const title = nudgeData.nudge || "Nudge";
+          
+          console.log("Sending nudge to content scripts:", { title, message });
+          
+          // Send to all active tabs (not just binance.com, in case user is on different site)
+          chrome.tabs.query({}, (tabs) => {
+            let sentCount = 0;
+            tabs.forEach((tab) => {
+              if (tab.id) {
+                chrome.tabs.sendMessage(tab.id, { 
+                  type: "WS_NUDGE", 
+                  payload: {
+                    title: title,
+                    message: message,
+                    raw: payload
+                  }
+                }).then(() => {
+                  sentCount++;
+                  console.log(`Nudge sent to tab ${tab.id} (${tab.url})`);
+                }).catch((err) => {
+                  // Content script might not be loaded, ignore
+                  console.log(`Could not send to tab ${tab.id}:`, err.message);
+                });
+
+              }
+
+            });
+            console.log(`Attempted to send nudge to ${tabs.length} tabs`);
+          });
+        } else {
+          console.log("Payload is not a nudge:", payload);
+        }
+      } catch (err) { 
+        console.error("Invalid WS message:", ev.data, err); 
+      }
     };
-    ws.onclose = (ev) => { console.warn("WS closed:", ev.code, ev.reason); ws = null; if (wsShouldReconnect) scheduleReconnect(); };
-    ws.onerror = (err) => { console.error("WS error:", err); try{ws.close();}catch(e){} ws=null; if (wsShouldReconnect) scheduleReconnect(); };
+    ws.onclose = (ev) => { 
+      console.warn("WS closed:", ev.code, ev.reason || "No reason provided"); 
+      ws = null; 
+      if (wsShouldReconnect) {
+        console.info("Scheduling reconnect...");
+        scheduleReconnect();
+      }
+    };
+    ws.onerror = (err) => { 
+      console.error("WS error:", err); 
+      try {
+        if (ws) ws.close();
+      } catch (e) {
+        console.error("Error closing WS:", e);
+      }
+      ws = null; 
+      if (wsShouldReconnect) {
+        console.info("Scheduling reconnect after error...");
+        scheduleReconnect();
+      }
+    };
   } catch (e) { console.error("Failed to create WebSocket:", e); ws=null; if (wsShouldReconnect) scheduleReconnect(); }
 }
 function scheduleReconnect() {
@@ -192,9 +270,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const token = await fetchTokenWithPassword(username, password);
         if (!isTokenValid(token)) throw new Error("received token invalid or expired");
         authToken = token;
-        chrome.storage.local.set({ authToken: token }, () => {});
+        chrome.storage.local.set({ authToken: token }, () => {
+          console.log("Token saved to storage");
+        });
+        console.log("Calling start endpoint...");
         await callStartEndpoint();
+        console.log("Start endpoint called, connecting WebSocket...");
         reconnectWebsocket(true);
+        // Give it a moment, then verify connection
+        setTimeout(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            console.log("✓ WebSocket connected after login");
+          } else {
+            console.warn("✗ WebSocket not connected after login. State:", ws ? ws.readyState : "null");
+          }
+        }, 2000);
         sendResponse({ ok: true, token });
         return;
       }
@@ -267,6 +357,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
       }
 
+      if (request.type === "CHECK_AUTH") {
+        const valid = authToken && isTokenValid(authToken);
+        sendResponse({ ok: true, authenticated: valid });
+        return;
+      }
+
+      if (request.type === "WS_STATUS") {
+        const status = {
+          connected: ws && ws.readyState === WebSocket.OPEN,
+          readyState: ws ? ws.readyState : null,
+          readyStateText: ws ? (ws.readyState === 0 ? "CONNECTING" : ws.readyState === 1 ? "OPEN" : ws.readyState === 2 ? "CLOSING" : "CLOSED") : "NO_WS",
+          hasToken: !!authToken,
+          tokenValid: authToken ? isTokenValid(authToken) : false,
+          url: authToken ? (() => { try { return buildWsUrl(); } catch(e) { return "ERROR: " + e.message; } })() : null,
+          shouldReconnect: wsShouldReconnect
+        };
+        sendResponse({ ok: true, status });
+        return;
+      }
+
+      if (request.type === "WS_RECONNECT") {
+        console.log("Manual WebSocket reconnect requested");
+        reconnectWebsocket(true);
+        sendResponse({ ok: true, message: "Reconnection initiated" });
+        return;
+      }
+
       sendResponse({ ok: false, error: "unknown_request_type" });
     } catch (err) {
       sendResponse({ ok: false, error: err.message || String(err) });
@@ -276,4 +393,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // cleanup
+chrome.runtime.onSuspend?.addListener(() => { stopWebsocket(); });
+
 chrome.runtime.onSuspend?.addListener(() => { stopWebsocket(); });

@@ -3,61 +3,190 @@ document.addEventListener("DOMContentLoaded", async () => {
   const API_BASE = "http://localhost:8000"; // for other direct calls; journal proxied via background
   const journalContainer = document.getElementById("journal");
   const alertsContainer = document.getElementById("alerts");
+  const loginContainer = document.getElementById("login-container");
   const chatInput = document.getElementById("ask-nev");
   const chatView = document.getElementById("chat-suggestions");
-  const loginContainerId = "login-container";
 
-  function ensureLoginUI() {
-    let el = document.getElementById(loginContainerId);
-    if (el) return el;
-    el = document.createElement("div");
-    el.id = loginContainerId;
-    el.style.padding = "8px";
-    el.style.borderTop = "1px solid #eee";
-    el.innerHTML = `
-      <div style="font-weight:600;margin-bottom:6px">Login (required for live nudges)</div>
-      <input id="nev-username" placeholder="username" style="width:100%;box-sizing:border-box;margin-bottom:6px" />
-      <input id="nev-password" type="password" placeholder="password" style="width:100%;box-sizing:border-box;margin-bottom:6px" />
-      <div style="display:flex;gap:8px;">
-        <button id="nev-login" style="flex:1">Sign in</button>
-        <button id="nev-clear" style="flex:1">Clear token</button>
-      </div>
-      <div id="nev-login-msg" style="font-size:12px;color:#666;margin-top:6px"></div>
-    `;
-    const parent = alertsContainer || document.body;
-    parent.appendChild(el);
-
-    document.getElementById("nev-login").addEventListener("click", async () => {
-      const u = document.getElementById("nev-username").value.trim();
-      const p = document.getElementById("nev-password").value;
-      const msg = document.getElementById("nev-login-msg");
-      msg.textContent = "Signing in...";
+  // Check if user is already logged in
+  let isLoggedIn = false;
+  
+  // Initialize login UI first
+  updateLoginUI();
+  
+  // Tab switching function - defined early so it can be used by other functions
+  function switchTab(tabName) {
+    const tabs = document.querySelectorAll(".tab-btn");
+    const views = document.querySelectorAll(".view");
+    
+    // Remove active from all tabs
+    tabs.forEach((t) => {
+      t.classList.remove("active");
+    });
+    
+    // Hide all views
+    views.forEach((v) => {
+      v.classList.add("hidden");
+      v.classList.remove("active");
+    });
+    
+    // Activate clicked tab
+    const activeTab = document.querySelector(`[data-tab="${tabName}"]`);
+    if (activeTab) {
+      activeTab.classList.add("active");
+    }
+    
+    // Show corresponding view
+    const targetView = document.getElementById(tabName);
+    if (targetView) {
+      targetView.classList.remove("hidden");
+      targetView.classList.add("active");
+    }
+  }
+  
+  // Then check auth status and load journal
+  chrome.storage.local.get(["authToken"], async (items) => {
+    if (items && items.authToken) {
+      // Verify token is still valid by checking with background
       try {
         const resp = await new Promise((resolve) => {
-          chrome.runtime.sendMessage({ type: "LOGIN_WITH_CREDS", payload: { username: u, password: p } }, (r) => resolve(r));
+          chrome.runtime.sendMessage({ type: "CHECK_AUTH" }, (r) => resolve(r));
         });
-        if (!resp || !resp.ok) {
-          msg.textContent = "Login failed: " + (resp && resp.error ? resp.error : "unknown");
-        } else {
-          msg.textContent = "Login OK.";
-          await loadJournal(); // fetch protected journal now that we have token
-        }
+        isLoggedIn = resp && resp.ok && resp.authenticated;
+        updateLoginUI();
+        // Always try to load journal - it will handle auth errors
+        await loadJournal();
       } catch (e) {
-        msg.textContent = "Login error: " + e.toString();
+        isLoggedIn = false;
+        updateLoginUI();
+        // Still try to load journal to show proper error
+        await loadJournal();
       }
-    });
+    } else {
+      updateLoginUI();
+      // Try to load journal even if not logged in (will show error)
+      await loadJournal();
+    }
+  });
 
-    document.getElementById("nev-clear").addEventListener("click", () => {
-      chrome.runtime.sendMessage({ type: "SET_AUTH_TOKEN", token: null }, (r) => {});
-      chrome.storage.local.remove(["authToken", "lastNudge"], () => {
-        document.getElementById("nev-login-msg").textContent = "Token cleared.";
+  function updateLoginUI() {
+    if (!loginContainer) return;
+    
+    if (isLoggedIn) {
+      loginContainer.innerHTML = `
+        <div style="padding: 16px; text-align: center;">
+          <div style="font-size: 14px; color: var(--accent-green); margin-bottom: 12px;">
+            <i class="fa-solid fa-check-circle" style="margin-right: 8px;"></i>
+            You are logged in
+          </div>
+          <button id="nev-logout" style="width: 100%; padding: 10px; background-color: var(--accent-red); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 12px;">
+            Logout
+          </button>
+        </div>
+      `;
+      document.getElementById("nev-logout").addEventListener("click", async () => {
+        chrome.runtime.sendMessage({ type: "SET_AUTH_TOKEN", token: null }, (r) => {});
+        chrome.storage.local.remove(["authToken", "lastNudge"], () => {
+          isLoggedIn = false;
+          updateLoginUI();
+        });
       });
-    });
+      setupWebSocketControls();
+    } else {
+      loginContainer.innerHTML = `
+        <div style="padding: 16px;">
+          <div style="font-weight: 600; margin-bottom: 12px; font-size: 14px;">Login (required for live nudges)</div>
+          <input id="nev-username" placeholder="username" style="width: 100%; box-sizing: border-box; margin-bottom: 8px; padding: 10px; background-color: var(--card-bg); color: var(--text-primary); border: 1px solid #2c313a; border-radius: 8px; font-size: 13px;" />
+          <input id="nev-password" type="password" placeholder="password" style="width: 100%; box-sizing: border-box; margin-bottom: 12px; padding: 10px; background-color: var(--card-bg); color: var(--text-primary); border: 1px solid #2c313a; border-radius: 8px; font-size: 13px;" />
+          <button id="nev-login" style="width: 100%; padding: 10px; background-color: var(--accent-blue); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 8px;">
+            Sign in
+          </button>
+          <div id="nev-login-msg" style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; text-align: center;"></div>
+        </div>
+      `;
 
-    return el;
+      document.getElementById("nev-login").addEventListener("click", async () => {
+        const u = document.getElementById("nev-username").value.trim();
+        const p = document.getElementById("nev-password").value;
+        const msg = document.getElementById("nev-login-msg");
+        msg.textContent = "Signing in...";
+        msg.style.color = "#8b929a";
+        try {
+          const resp = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({ type: "LOGIN_WITH_CREDS", payload: { username: u, password: p } }, (r) => resolve(r));
+          });
+          if (!resp || !resp.ok) {
+            msg.textContent = "Login failed: " + (resp && resp.error ? resp.error : "unknown");
+            msg.style.color = "#e74c3c";
+          } else {
+            msg.textContent = "Login successful!";
+            msg.style.color = "#2ecc71";
+            isLoggedIn = true;
+            updateLoginUI();
+            await loadJournal(); // fetch protected journal now that we have token
+          }
+        } catch (e) {
+          msg.textContent = "Login error: " + e.toString();
+          msg.style.color = "#e74c3c";
+        }
+      });
+    }
+    
+    // Setup WebSocket controls if logged in
+    if (isLoggedIn) {
+      setTimeout(setupWebSocketControls, 100);
+    }
   }
 
-  ensureLoginUI();
+  // Setup WebSocket status controls
+  function setupWebSocketControls() {
+    const checkBtn = document.getElementById("check-ws-status");
+    const reconnectBtn = document.getElementById("reconnect-ws");
+    const statusDisplay = document.getElementById("ws-status-display");
+    
+    if (checkBtn) {
+      checkBtn.addEventListener("click", async () => {
+        try {
+          const resp = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({ type: "WS_STATUS" }, (r) => resolve(r));
+          });
+          if (resp && resp.ok && resp.status) {
+            const s = resp.status;
+            const statusHtml = `
+              <div style="background: var(--card-bg); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 10px;">
+                <div><strong>Connection:</strong> ${s.connected ? '✓ Connected' : '✗ Not Connected'}</div>
+                <div><strong>State:</strong> ${s.readyStateText || 'N/A'}</div>
+                <div><strong>Has Token:</strong> ${s.hasToken ? 'Yes' : 'No'}</div>
+                <div><strong>Token Valid:</strong> ${s.tokenValid ? 'Yes' : 'No'}</div>
+                <div><strong>URL:</strong> ${s.url || 'N/A'}</div>
+                <div><strong>Auto-Reconnect:</strong> ${s.shouldReconnect ? 'Yes' : 'No'}</div>
+              </div>
+            `;
+            statusDisplay.innerHTML = statusHtml;
+          }
+        } catch (e) {
+          statusDisplay.innerHTML = `<div style="color: #e74c3c;">Error: ${e.message}</div>`;
+        }
+      });
+    }
+    
+    if (reconnectBtn) {
+      reconnectBtn.addEventListener("click", async () => {
+        try {
+          const resp = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({ type: "WS_RECONNECT" }, (r) => resolve(r));
+          });
+          if (resp && resp.ok) {
+            statusDisplay.innerHTML = `<div style="color: #2ecc71;">Reconnection initiated. Check status in a few seconds.</div>`;
+            setTimeout(() => {
+              if (checkBtn) checkBtn.click();
+            }, 2000);
+          }
+        } catch (e) {
+          statusDisplay.innerHTML = `<div style="color: #e74c3c;">Error: ${e.message}</div>`;
+        }
+      });
+    }
+  }
 
   // ------------------- loadJournal via background proxy -------------------
   async function loadJournal() {
@@ -75,8 +204,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         // handle auth failure explicitly
         if (resp.status === 401) {
           journalContainer.innerHTML = "<p class='empty error'>Unauthorized — please sign in to view trades.</p>";
-          const loginMsg = document.getElementById("nev-login-msg");
-          if (loginMsg) loginMsg.textContent = "Unauthorized: please sign in.";
+          isLoggedIn = false;
+          updateLoginUI();
+          // Switch to login tab
+          switchTab("login");
           return;
         }
         journalContainer.innerHTML = "<p class='empty error'>Failed to load trades</p>";
@@ -88,10 +219,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       journalContainer.innerHTML = "";
 
       // backend may return { trades: [...] } or array
-      const trades = Array.isArray(data) ? data : (data.trades || data);
+      let trades = null;
+      if (Array.isArray(data)) {
+        trades = data;
+      } else if (data && typeof data === 'object') {
+        trades = data.trades || data.data || (Array.isArray(data) ? data : null);
+      }
 
-      if (!trades || trades.length === 0) {
+      if (!trades || !Array.isArray(trades) || trades.length === 0) {
         journalContainer.innerHTML = "<p class='empty'>No trades recorded yet</p>";
+        console.log("No trades found. Response data:", data);
         return;
       }
 
@@ -143,8 +280,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // initial load
-  await loadJournal();
+  // initial load - will be called after auth check if logged in
 
   // show stored last nudge
   chrome.storage.local.get(["lastNudge"], (items) => {
@@ -169,14 +305,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // listen for WS nudges forwarded from background
+  // Listen for WS nudges as fallback (if content script isn't available)
   chrome.runtime.onMessage.addListener((msg, sender) => {
     if (msg && msg.type === "WS_NUDGE") {
       try {
+        console.log("Popup received WS_NUDGE:", msg);
         const payload = msg.payload;
-        const n = payload.nudge || payload;
-        const title = n.nudge || "Nudge";
-        const message = n.message || JSON.stringify(n).slice(0, 200);
+        const title = payload.title || "Nudge";
+        const message = payload.message || JSON.stringify(payload).slice(0, 200);
+        
+        // Show in alerts tab
         const card = document.createElement("div");
         card.className = "alert-card nudge";
         card.innerHTML = `
@@ -189,23 +327,32 @@ document.addEventListener("DOMContentLoaded", async () => {
           </div>
           <div class="alert-body">${message}</div>
         `;
-        alertsContainer.insertBefore(card, alertsContainer.firstChild);
+        if (alertsContainer) {
+          alertsContainer.insertBefore(card, alertsContainer.firstChild);
+          // Switch to alerts tab to show the nudge
+          switchTab("alerts");
+        }
       } catch (e) {
-        console.error("Failed to render WS nudge:", e);
+        console.error("Failed to render WS nudge in popup:", e);
       }
     }
   });
 
-  // rest of your popup wiring (tabs/chat/close)
+  // Set up tab click handlers
   const tabs = document.querySelectorAll(".tab-btn");
-  const views = document.querySelectorAll(".view");
-  if (tabs && views) {
+  if (tabs) {
     tabs.forEach((tab) => {
-      tab.addEventListener("click", () => {
-        tabs.forEach((t) => t.classList.remove("active"));
-        views.forEach((v) => v.classList.add("hidden"));
-        tab.classList.add("active");
-        document.getElementById(tab.dataset.tab).classList.remove("hidden");
+      tab.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const targetTab = tab.dataset.tab;
+        if (targetTab) {
+          switchTab(targetTab);
+          // Setup WebSocket controls when login tab is shown
+          if (targetTab === "login") {
+            setTimeout(setupWebSocketControls, 100);
+          }
+        }
       });
     });
   }
