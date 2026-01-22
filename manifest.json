@@ -3,14 +3,15 @@
   "name": "NevUp AI",
   "version": "1.0",
   "description": "AI trading psychology analyzer + nudges + points.",
-  "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "http://localhost:8000/*"
   ],
   "permissions": [
     "storage",
     "activeTab",
-    "tabs"
+    "tabs",
+    "scripting",
+    "notifications"
   ],
   "background": {
     "service_worker": "background.js"
@@ -21,9 +22,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.binance.com/*", "*://binance.com/*"],
+      "matches": ["<all_urls>"],
       "js": ["contentScript.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ]
 }

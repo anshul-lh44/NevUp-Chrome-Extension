@@ -167,11 +167,18 @@ function connectWebsocket() {
           
           console.log("Sending nudge to content scripts:", { title, message });
           
-          // Send to all active tabs (not just binance.com, in case user is on different site)
+          // Send to all active tabs (filter out chrome:// and extension pages)
           chrome.tabs.query({}, (tabs) => {
-            let sentCount = 0;
+            let sentToTabs = 0;
+            let failedTabs = 0;
+            
             tabs.forEach((tab) => {
-              if (tab.id) {
+              if (tab.id && tab.url && 
+                  !tab.url.startsWith('chrome://') && 
+                  !tab.url.startsWith('chrome-extension://') &&
+                  !tab.url.startsWith('edge://') &&
+                  !tab.url.startsWith('about:')) {
+                
                 chrome.tabs.sendMessage(tab.id, { 
                   type: "WS_NUDGE", 
                   payload: {
@@ -180,17 +187,58 @@ function connectWebsocket() {
                     raw: payload
                   }
                 }).then(() => {
-                  sentCount++;
-                  console.log(`Nudge sent to tab ${tab.id} (${tab.url})`);
+                  sentToTabs++;
+                  console.log(`✓ Nudge sent to tab ${tab.id} (${tab.url})`);
                 }).catch((err) => {
-                  // Content script might not be loaded, ignore
-                  console.log(`Could not send to tab ${tab.id}:`, err.message);
+                  failedTabs++;
+                  // Content script might not be loaded, try injecting it
+                  console.log(`✗ Could not send to tab ${tab.id} (${tab.url}): ${err.message}`);
+                  
+                  // Try to inject content script if it's not loaded
+                  chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: ['contentScript.js']
+                  }).then(() => {
+                    console.log(`✓ Injected content script into tab ${tab.id}`);
+                    // Retry sending message after injection
+                    setTimeout(() => {
+                      chrome.tabs.sendMessage(tab.id, { 
+                        type: "WS_NUDGE", 
+                        payload: {
+                          title: title,
+                          message: message,
+                          raw: payload
+                        }
+                      }).then(() => {
+                        console.log(`✓ Nudge sent to tab ${tab.id} after injection`);
+                      }).catch(() => {
+                        console.log(`✗ Still failed to send to tab ${tab.id} after injection`);
+                      });
+                    }, 500);
+                  }).catch((injectErr) => {
+                    console.log(`✗ Could not inject script into tab ${tab.id}: ${injectErr.message}`);
+                  });
                 });
-
               }
-
             });
-            console.log(`Attempted to send nudge to ${tabs.length} tabs`);
+            
+            console.log(`Nudge delivery: ${sentToTabs} sent, ${failedTabs} failed (out of ${tabs.length} tabs)`);
+            
+            // If no content scripts received it, send to extension popup as fallback
+            if (sentToTabs === 0) {
+              console.log("No content scripts available, sending to extension popup as fallback");
+              chrome.runtime.sendMessage({ 
+                type: "WS_NUDGE", 
+                payload: {
+                  title: title,
+                  message: message,
+                  raw: payload
+                }
+              }).catch(() => {
+                // Popup might not be open, that's ok
+                console.log("Extension popup not open");
+              });
+            }
           });
         } else {
           console.log("Payload is not a nudge:", payload);
