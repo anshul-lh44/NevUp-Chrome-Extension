@@ -31,6 +31,8 @@
   <nav class="tabs">
     <button class="tab-btn active" data-tab="journal">Journal</button>
     <button class="tab-btn" data-tab="alerts">Alerts</button>
+    <button class="tab-btn" data-tab="chat">Chat</button>
+    <button class="tab-btn" data-tab="login">Login</button>
   </nav>
 
   <!-- Main Content Area -->
@@ -44,13 +46,36 @@
       <p class="empty">No alerts yet</p>
     </div>
 
+    <!-- Login -->
+    <div id="login" class="view hidden">
+      <div id="login-container"></div>
+      <div style="padding: 16px; border-top: 1px solid #2c313a; margin-top: 16px;">
+        <button id="check-ws-status" style="width: 100%; padding: 8px; background-color: var(--card-bg); color: var(--text-primary); border: 1px solid #2c313a; border-radius: 8px; cursor: pointer; font-size: 12px; margin-bottom: 8px;">
+          Check WebSocket Status
+        </button>
+        <button id="reconnect-ws" style="width: 100%; padding: 8px; background-color: var(--accent-blue); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px;">
+          Reconnect WebSocket
+        </button>
+        <div id="ws-status-display" style="margin-top: 12px; font-size: 11px; color: var(--text-secondary); line-height: 1.6;"></div>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div id="chat" class="view hidden">
+      <div id="chat-messages" class="chat-messages">
+        <div class="chat-message ai">
+          <div class="message-content">Hi! I'm Nev, your AI trading coach. Ask me anything about trading psychology, risk management, or your recent trades!</div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Footer -->
   <footer class="chat-footer">
     <div class="input-wrapper">
-      <input type="text" placeholder="Ask Nev (coming soon)" disabled />
-      <button class="send-btn" disabled>
+      <input type="text" id="chat-input" placeholder="Ask Nev anything..." />
+      <button class="send-btn" id="send-btn">
         <i class="fa-regular fa-paper-plane"></i>
       </button>
     </div>
