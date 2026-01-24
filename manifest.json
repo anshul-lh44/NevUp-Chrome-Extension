@@ -4,7 +4,8 @@
   "version": "1.0",
   "description": "AI trading psychology analyzer + nudges + points.",
   "host_permissions": [
-    "http://localhost:8000/*"
+    "http://localhost:8000/*",
+    "https://app.alpaca.markets/*"
   ],
   "permissions": [
     "storage",
@@ -22,8 +23,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["contentScript.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "contentScript.js"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }
