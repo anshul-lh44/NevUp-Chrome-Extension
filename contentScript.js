@@ -17,20 +17,27 @@ function getTradeContextFromPage() {
 }
 
 function showNudgeOverlay(text, title = "Nudge") {
+  console.log("NevUp: showNudgeOverlay called", { text, title });
+
   // 1. Remove existing overlay host if any
   const existingHost = document.getElementById("nevup-nudge-host");
   if (existingHost) {
+    console.log("NevUp: Removing existing host");
     existingHost.remove();
   }
 
   // 2. Request notification permission (optional enhancement)
   if ("Notification" in window && Notification.permission === "granted") {
-    new Notification(`NevUp: ${title}`, {
-      body: text,
-      icon: chrome.runtime.getURL("icon.png").catch(() => ""),
-      tag: "nevup-nudge",
-      requireInteraction: false
-    });
+    try {
+      new Notification(`NevUp: ${title}`, {
+        body: text,
+        icon: chrome.runtime.getURL("icon.png").catch(() => ""),
+        tag: "nevup-nudge",
+        requireInteraction: false
+      });
+    } catch (e) {
+      console.warn("NevUp: Native notification failed", e);
+    }
   }
 
   // 3. Create the Host Element
@@ -38,24 +45,31 @@ function showNudgeOverlay(text, title = "Nudge") {
   host.id = "nevup-nudge-host";
 
   // Important: Style the host to be merely a container that doesn't affect layout
-  // We attach it to documentElement (<html>) to avoid potential <body> transforms
-  host.style.all = "initial";
+  // We prefer document.body to avoid some documentElement quirks, but style it robustly
+  host.style.all = "initial"; // Resets everything (display becomes inline)
+  host.style.display = "block"; // Force block
   host.style.position = "fixed";
   host.style.top = "0";
   host.style.left = "0";
-  host.style.width = "0"; // Don't block clicks on the page provided we position the child
-  host.style.height = "0";
-  host.style.zIndex = "2147483647";
+  host.style.width = "100vw"; // Full width
+  host.style.height = "100vh"; // Full height (to ensure centering works if relative)
+  host.style.zIndex = "2147483647"; // Max int32
+  host.style.pointerEvents = "none"; // Let clicks pass through everything except our popup
+  host.style.overflow = "hidden"; // Prevent scrollbars if something goes wrong 
 
   // 4. Attach Shadow DOM
   const shadow = host.attachShadow({ mode: "open" });
 
   // 5. Define CSS content
-  // We put all styles here so they don't leak out and page styles don't leak in
   const style = document.createElement("style");
   style.textContent = `
     :host {
-      all: initial; /* Reset all inherited properties on the host */
+      all: initial; 
+      display: block;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2147483647;
     }
     
     .nevup-overlay {
@@ -84,8 +98,11 @@ function showNudgeOverlay(text, title = "Nudge") {
       box-sizing: border-box;
       
       animation: slideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55), pulse 2s ease-in-out infinite;
-      cursor: pointer;
+      cursor: auto;
       z-index: 2147483647;
+      
+      /* KEY: Re-enable pointer events for the popup itself */
+      pointer-events: auto;
       
       /* Ensure text is readable */
       text-align: left;
@@ -216,13 +233,12 @@ function showNudgeOverlay(text, title = "Nudge") {
     </div>
   `;
 
-  // 7. Add event listeners (inside Shadow DOM context)
+  // 7. Add event listeners
   const closeBtn = wrapper.querySelector(".close-btn");
-
   const close = (e) => {
     if (e) e.stopPropagation();
-    wrapper.classList.remove("pulse"); // stop pulsing
-    wrapper.classList.add("anim-out"); // trigger exit animation
+    wrapper.classList.remove("pulse");
+    wrapper.classList.add("anim-out");
     setTimeout(() => {
       if (host.parentNode) host.remove();
     }, 300);
@@ -230,33 +246,26 @@ function showNudgeOverlay(text, title = "Nudge") {
 
   closeBtn.onclick = close;
 
-  // Click anywhere on banner to dismiss (optional UX)
-  wrapper.onclick = (e) => {
-    // If they clicked the button, we already handled it.
-    // If they clicked the text/box, we also close.
-    // Check if the click target was the button or inside it
-    if (!e.composedPath().includes(closeBtn)) {
-      close(e);
-    }
-  };
+  // Let them close by clicking the banner body too if they want? 
+  // Maybe not, might be annoying if they tried to copy text. 
+  // But let's keep the user's previous UX or improve it?
+  // Let's only close on the close button to be safe against accidental dismissals.
 
   shadow.appendChild(wrapper);
 
   // 8. Attach to the page
-  // We prefer document.documentElement to escape body-level constraints
-  const attachTarget = document.documentElement || document.body;
+  const attachTarget = document.body || document.documentElement;
 
   if (attachTarget) {
     attachTarget.appendChild(host);
-    console.log("✓ NevUp Shadow DOM Host attached to page");
+    console.log("✓ NevUp Shadow DOM Host attached to", attachTarget.tagName);
   } else {
-    // Wait for body/html in extreme edge case
-    console.warn("NevUp: documentElement/body missing? Waiting...");
+    console.warn("NevUp: document.body missing? Waiting...");
     const obs = new MutationObserver(() => {
-      const target = document.documentElement || document.body;
+      const target = document.body || document.documentElement;
       if (target) {
         target.appendChild(host);
-        console.log("✓ NevUp Shadow DOM Host attached after wait");
+        console.log("✓ NevUp Shadow DOM Host attached after wait to", target.tagName);
         obs.disconnect();
       }
     });
@@ -265,9 +274,7 @@ function showNudgeOverlay(text, title = "Nudge") {
 
   // 9. Auto-remove
   setTimeout(() => {
-    if (host.parentNode) {
-      close();
-    }
+    if (host.parentNode) close();
   }, 15000);
 }
 
